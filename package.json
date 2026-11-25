@@ -2,6 +2,7 @@
   "name": "ml-resume-local-validation",
   "private": true,
   "scripts": {
+    "start": "python server.py",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
