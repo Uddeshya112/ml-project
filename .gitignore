@@ -20,6 +20,12 @@ env/
 *.swp
 *.swo
 
+# Node and browser test artifacts
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+
 # Jupyter
 .ipynb_checkpoints/
 

@@ -29,3 +29,7 @@ pytest>=7.4.0
 
 # --- ONLY for validation (proving our scratch code matches sklearn) ---
 scikit-learn>=1.3.0
+
+
+# --- Web API + HTML frontend (server.py) ---
+flask>=3.0.0

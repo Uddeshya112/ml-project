@@ -121,3 +121,23 @@ python -m pytest tests/ -v
 | Charts | Plotly |
 | Notebook | Jupyter |
 | Testing | pytest |
+
+---
+
+## Web Frontend (HTML + Flask API)
+
+An alternative HTML interface lives in `frontend/index.html`. It is served by `server.py`, which exposes the same from-scratch pipeline from `src/` as a JSON API. The Streamlit dashboard (`app.py`) is unchanged and still works.
+
+```bash
+pip install -r requirements.txt
+python server.py
+```
+
+Open **http://localhost:5000**. (Set `PORT=8080` to use another port.)
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/health` | Liveness check |
+| `GET /api/samples` | Sample JDs and resumes from `data/` |
+| `POST /api/parse` | Extract text from `.pdf` / `.docx` / `.txt` / `.md` / `.csv` uploads |
+| `POST /api/analyze` | Rank resumes against a JD (TF-IDF + cosine similarity) |

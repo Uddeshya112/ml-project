@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Veritas NLP — Precision Resume Intelligence &amp; Vector Ranking</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #09090f;
+  --surface: rgba(17, 18, 28, 0.82);
+  --surface-solid: #12131e;
+  --surface-elev: rgba(26, 28, 43, 0.78);
+  --ink: #fafaf9;
+  --muted: #9ca3af;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --accent: #818cf8;
+  --accent-solid: #6366f1;
+  --emerald: #10b981;
+  --amber: #f59e0b;
+}
+html[data-theme="light"] {
+  --bg: #faf8f5;
+  --surface: rgba(255, 255, 255, 0.90);
+  --surface-solid: #ffffff;
+  --surface-elev: rgba(244, 241, 234, 0.92);
+  --ink: #111827;
+  --muted: #4b5563;
+  --border: rgba(17, 24, 39, 0.10);
+  --border-strong: rgba(17, 24, 39, 0.20);
+  --accent: #4f46e5;
+  --accent-solid: #4338ca;
+  --emerald: #059669;
+  --amber: #d97706;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+.font-serif-disp { font-family: 'Instrument Serif', Georgia, serif; letter-spacing: -0.02em; }
+.font-mono-code { font-family: 'JetBrains Mono', monospace; }
+
+/* Architectural Hairline Grid & Subtle Ambient Glow */
+.arch-grid {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image:
+    radial-gradient(ellipse 65% 45% at 75% 15%, rgba(99, 102, 241, 0.12), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 15% 85%, rgba(245, 158, 11, 0.07), transparent 70%),
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 64px 64px, 64px 64px;
+  pointer-events: none;
+}
+#vectorCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+/* Precision Glass Panel with Subtle Indigo Sheen */
+.panel {
+  position: relative;
+  background: var(--surface);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(129, 140, 248, 0.10), transparent 45%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.panel:hover::before { opacity: 1; }
+.panel:hover { border-color: var(--border-strong); }
+
+/* 3D Isometric Candidate Stack (Opaque Front Layer — Zero Text Bleed) */
+.stack-stage {
+  perspective: 1200px;
+  min-height: 360px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stack-3d {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 276px;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 6deg)) rotateY(var(--ry, -8deg));
+  transition: transform 0.25s ease-out;
+}
+.stack-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-solid);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 30px 65px -15px rgba(0, 0, 0, 0.55);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease;
+  cursor: pointer;
+}
+.stack-layer[data-depth="0"] {
+  transform: translateZ(46px) translateY(0px);
+  z-index: 3;
+  border-color: rgba(129, 140, 248, 0.45);
+  box-shadow: 0 32px 70px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(129, 140, 248, 0.15);
+}
+.stack-layer[data-depth="1"] {
+  transform: translateZ(0px) translateY(22px) translateX(16px) scale(0.96);
+  z-index: 2;
+  opacity: 0.92;
+}
+.stack-layer[data-depth="2"] {
+  transform: translateZ(-46px) translateY(44px) translateX(32px) scale(0.92);
+  z-index: 1;
+  opacity: 0.78;
+}
+.stack-3d:hover .stack-layer[data-depth="0"] { transform: translateZ(60px) translateY(-6px); }
+.stack-3d:hover .stack-layer[data-depth="1"] { transform: translateZ(12px) translateY(28px) translateX(22px) scale(0.96); }
+.stack-3d:hover .stack-layer[data-depth="2"] { transform: translateZ(-34px) translateY(56px) translateX(42px) scale(0.92); }
+
+/* Refined Range Slider */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border-strong);
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-solid);
+  border: 2px solid var(--ink);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+/* FAQ */
+.faq-item { border-top: 1px solid var(--border); }
+.faq-item button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 0;
+  font-weight: 600;
+  font-size: 15px;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+.faq-item i { font-style: normal; font-size: 20px; color: var(--muted); transition: transform 0.3s ease; }
+.faq-item.open i { transform: rotate(45deg); color: var(--accent); }
+.faq-item .faq-ans { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s ease; }
+.faq-item.open .faq-ans { grid-template-rows: 1fr; }
+.faq-item .faq-ans p { overflow: hidden; color: var(--muted); font-size: 13.5px; line-height: 1.65; }
+.faq-item.open .faq-ans p { padding-bottom: 18px; }
+</style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+
+<div class="arch-grid"></div>
+<canvas id="vectorCanvas"></canvas>
+
+<!-- Executive Top Bar -->
+<header class="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl">
+  <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+    <a href="#top" class="flex items-center gap-3 text-left">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-400/35 font-mono-code text-xs font-semibold text-indigo-400 shadow-sm">
+        λ
+      </div>
+      <div class="leading-tight">
+        <span class="block text-sm font-semibold tracking-tight">NLP Resume Intelligence</span>
+        <span class="block font-mono-code text-[10px] tracking-wider text-[var(--muted)] uppercase">Scratch TF-IDF Engine</span>
+      </div>
+    </a>
+
+    <nav class="hidden md:flex items-center gap-6 text-xs font-medium text-[var(--muted)]">
+      <a href="#workspace" class="hover:text-[var(--ink)] transition-colors">Evaluation Studio</a>
+      <a href="#resultsSection" class="hover:text-[var(--ink)] transition-colors">Analytics</a>
+      <a href="#architecture" class="hover:text-[var(--ink)] transition-colors">Architecture</a>
+      <a href="#faq" class="hover:text-[var(--ink)] transition-colors">Methodology</a>
+    </nav>
+
+    <div class="flex items-center gap-2.5">
+      <button id="open-bag-btn" type="button" class="inline-flex items-center gap-2 rounded-xl border border-[var(--border-strong)] bg-[var(--surface-solid)] px-3.5 py-1.5 text-xs font-semibold hover:border-indigo-400/60 transition">
+        <span>Shortlist</span>
+        <span id="bag-count-badge" class="rounded-md bg-indigo-500/15 px-1.5 py-0.5 font-mono-code text-[11px] text-indigo-400">0</span>
+      </button>
+      <button id="watchDemoBtnHeader" type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elev)] px-3.5 py-1.5 text-xs font-medium hover:border-[var(--border-strong)] transition">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+        <span>Pipeline Reel</span>
+      </button>
+      <button id="theme-toggle-btn" type="button" class="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-solid)] text-xs hover:border-[var(--border-strong)] transition" aria-label="Toggle theme">
+        <span id="theme-icon">☀</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top" class="mx-auto w-full max-w-7xl flex-1 px-4 pt-10 pb-20 sm:px-6 space-y-20">
+
+  <!-- 1. EXECUTIVE KINETIC HERO -->
+  <section class="grid lg:grid-cols-12 gap-10 items-center pt-2">
+    <div class="lg:col-span-7 space-y-6">
+      <div class="hero-anim inline-flex items-center gap-2.5 rounded-full border border-indigo-400/25 bg-indigo-500/10 px-3.5 py-1 font-mono-code text-[11px] text-indigo-300">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+        <span>SCRATCH NLP PIPELINE · DETERMINISTIC TF-IDF &amp; COSINE SIMILARITY</span>
+      </div>
+
+      <h1 class="hero-anim text-4xl sm:text-5xl lg:text-[3.6rem] font-semibold tracking-tight leading-[1.06]">
+        Rank every candidate, <br class="hidden sm:block" />
+        <span class="font-serif-disp italic font-normal text-5xl sm:text-6xl lg:text-[4.3rem] text-indigo-400">with mathematical clarity.</span>
+      </h1>
+
+      <p class="hero-anim text-sm sm:text-base text-[var(--muted)] max-w-xl leading-relaxed">
+        Built from first principles in pure Python—zero black-box embeddings. Trace every token, Porter stem, TF-IDF weight, and cosine similarity angle in real time.
+      </p>
+
+      <div class="hero-anim flex flex-wrap items-center gap-3 pt-1">
+        <button id="heroQuickRunBtn" type="button" class="rounded-xl bg-indigo-500 text-white px-6 py-3 text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-500/25 hover:bg-indigo-400 transition active:scale-[0.98]">
+          Run Live Evaluation →
+        </button>
+        <button id="watchDemoBtnHero" type="button" class="rounded-xl border border-[var(--border-strong)] bg-[var(--surface-solid)] px-5 py-3 text-xs sm:text-sm font-medium hover:border-indigo-400/50 transition">
+          Inspect 5-Stage Pipeline
+        </button>
+      </div>
+
+      <!-- Telemetry Strip -->
+      <div class="hero-anim grid grid-cols-3 gap-4 pt-4 border-t border-[var(--border)] max-w-lg">
+        <div>
+          <span class="block font-mono-code text-[10px] text-[var(--muted)] uppercase">Preprocessing</span>
+          <span class="text-sm font-semibold">Regex + Porter Stem</span>
+        </div>
+        <div>
+          <span class="block font-mono-code text-[10px] text-[var(--muted)] uppercase">Vectorization</span>
+          <span class="text-sm font-semibold">Log-Scaled TF-IDF</span>
+        </div>
+        <div>
+          <span class="block font-mono-code text-[10px] text-[var(--muted)] uppercase">Auditability</span>
+          <span class="text-sm font-semibold text-emerald-400">100% Explainable</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: 3D Isometric Candidate Vector Stack -->
+    <div class="lg:col-span-5 hero-anim">
+      <div class="stack-stage" id="stackStage">
+        <div class="stack-3d" id="stack3d">
+          <div class="stack-layer" data-depth="0" data-cycle-stack>
+            <div class="flex items-center justify-between">
+              <span class="font-mono-code text-[10px] uppercase tracking-widest text-indigo-400" id="stackTopTag">RANK #01 · TOP ALIGNMENT</span>
+              <span class="rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 font-mono-code text-[10px] text-emerald-400">VERIFIED</span>
+            </div>
+            <div>
+              <div class="font-serif-disp text-5xl text-[var(--ink)]" id="stackTopScore">84.6%</div>
+              <div class="mt-1 text-sm font-semibold" id="stackTopName">Ananya Verma — NLP Engineer</div>
+              <div class="mt-0.5 font-mono-code text-[11px] text-[var(--muted)]" id="stackTopSub">cos(&theta;) = 0.846 · 14/16 Matched Skills</div>
+            </div>
+            <div class="space-y-1.5">
+              <div class="flex justify-between font-mono-code text-[10px] text-[var(--muted)]">
+                <span>TF-IDF Vector Overlap</span>
+                <span class="text-indigo-400">Click card to cycle →</span>
+              </div>
+              <div class="h-1.5 w-full rounded-full bg-indigo-500/15 overflow-hidden">
+                <div id="stackTopBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400" style="width: 84.6%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack-layer" data-depth="1">
+            <div class="flex items-center justify-between">
+              <span class="font-mono-code text-[10px] uppercase tracking-widest text-[var(--muted)]">RANK #02</span>
+              <span class="font-mono-code text-[10px] text-indigo-400">68.2%</span>
+            </div>
+            <div>
+              <div class="text-base font-semibold">Rohan Mehta — ML Practitioner</div>
+              <div class="font-mono-code text-[11px] text-[var(--muted)]">Scikit-learn · PCA · Plotly</div>
+            </div>
+            <div class="h-1 w-full rounded-full bg-indigo-500/15"></div>
+          </div>
+
+          <div class="stack-layer" data-depth="2">
+            <div class="flex items-center justify-between">
+              <span class="font-mono-code text-[10px] uppercase tracking-widest text-[var(--muted)]">RANK #03</span>
+              <span class="font-mono-code text-[10px] text-[var(--muted)]">54.1%</span>
+            </div>
+            <div>
+              <div class="text-base font-semibold">Priya Nair — Full-Stack AI</div>
+              <div class="font-mono-code text-[11px] text-[var(--muted)]">FastAPI · LLMs · RAG</div>
+            </div>
+            <div class="h-1 w-full rounded-full bg-indigo-500/15"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. MATCH STUDIO WORKSPACE -->
+  <section id="workspace" class="space-y-6 scroll-mt-20">
+    <div class="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border)] pb-4">
+      <div>
+        <span class="font-mono-code text-[11px] uppercase tracking-widest text-indigo-400">01 // Evaluation Workspace</span>
+        <h2 class="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight">Configure Target Role &amp; Candidate Corpus</h2>
+      </div>
+      <button id="resetBtn" type="button" class="hidden rounded-xl border border-[var(--border-strong)] bg-[var(--surface-solid)] px-3.5 py-2 text-xs font-medium hover:border-rose-400/50 transition">
+        Reset Workspace
+      </button>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-12">
+      <!-- Job Description -->
+      <div class="panel p-6 lg:col-span-6 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-semibold">1. Job Description Specification</h3>
+          <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-[var(--muted)] select-none">
+            <input id="useSampleJD" type="checkbox" checked class="w-4 h-4 accent-indigo-500 cursor-pointer" />
+            <span>Use preset role</span>
+          </label>
+        </div>
+
+        <div id="sampleJDWrap" class="space-y-1.5">
+          <label for="sampleJDSelect" class="block font-mono-code text-[10px] uppercase tracking-wider text-[var(--muted)]">Benchmark Role</label>
+          <select id="sampleJDSelect" class="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-solid)] px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-indigo-400">
+            <option value="ml_eng">Senior Machine Learning Engineer (NLP &amp; Python)</option>
+            <option value="data_sci">Data Scientist — Predictive Modeling &amp; Analytics</option>
+            <option value="ai_full">Full-Stack AI Engineer (React, FastAPI, LLMs)</option>
+          </select>
+        </div>
+
+        <div class="flex-1 flex flex-col gap-1.5">
+          <div class="flex justify-between font-mono-code text-[11px] text-[var(--muted)]">
+            <span id="jdTextareaLabel">Role Description Preview</span>
+            <span id="jdWordCount">0 words</span>
+          </div>
+          <textarea id="jdTextarea" rows="8" readonly class="w-full flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-elev)] p-4 font-mono-code text-xs leading-relaxed focus:outline-none focus:border-indigo-400 resize-y"></textarea>
+        </div>
+      </div>
+
+      <!-- Candidate Resumes & Threshold -->
+      <div class="panel p-6 lg:col-span-6 flex flex-col gap-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-semibold">2. Candidate Resume Corpus</h3>
+          <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-[var(--muted)] select-none">
+            <input id="useSampleResumes" type="checkbox" checked class="w-4 h-4 accent-indigo-500 cursor-pointer" />
+            <span>Include sample corpus (5)</span>
+          </label>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--surface-elev)] p-4 cursor-pointer hover:border-indigo-400/70 transition text-center">
+            <span class="text-xs font-semibold">Upload Resume Files</span>
+            <span class="font-mono-code text-[11px] text-[var(--muted)]">.pdf, .docx, .txt, .md, .csv</span>
+            <input id="resumeFileInput" type="file" multiple accept=".pdf,.docx,.txt,.md,.csv" class="hidden" />
+          </label>
+          <button id="openAddResumeModalBtn" type="button" class="flex flex-col items-center justify-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-elev)] p-4 hover:border-emerald-400/60 transition text-center">
+            <span class="text-xs font-semibold">+ Add Custom Candidate</span>
+            <span class="font-mono-code text-[11px] text-[var(--muted)]">Paste resume text inline</span>
+          </button>
+        </div>
+
+        <div>
+          <div class="flex justify-between font-mono-code text-[11px] text-[var(--muted)] mb-2">
+            <span>ACTIVE CORPUS</span>
+            <span id="resumePoolCount" class="text-emerald-400">5 documents</span>
+          </div>
+          <div id="resumePoolChips" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto"></div>
+        </div>
+
+        <div class="border-t border-[var(--border)] pt-4 space-y-2">
+          <div class="flex justify-between text-xs font-medium">
+            <span>3. Minimum Cosine Threshold (%)</span>
+            <span id="thresholdValueLabel" class="font-mono-code text-indigo-400">0%</span>
+          </div>
+          <input id="minThreshold" type="range" min="0" max="100" step="5" value="0" class="w-full" />
+        </div>
+
+        <button id="analyzeBtn" type="button" class="w-full rounded-xl bg-indigo-500 text-white py-3.5 text-sm font-semibold shadow-lg shadow-indigo-500/20 hover:bg-indigo-400 transition active:scale-[0.99]">
+          Run TF-IDF &amp; Cosine Ranking
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. LIVE RESULTS ANALYTICS (4 KPIs + 4 TABS) -->
+  <section id="resultsSection" class="hidden space-y-6 scroll-mt-20">
+    <div class="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border)] pb-4">
+      <div>
+        <span class="font-mono-code text-[11px] uppercase tracking-widest text-emerald-400">02 // Quantitative Evaluation</span>
+        <h2 class="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight">Candidate Match Intelligence</h2>
+      </div>
+      <button id="downloadCsvBtn" type="button" class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition">
+        Export Rankings (.CSV)
+      </button>
+    </div>
+
+    <!-- 4 Precision KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="kpi-card panel p-5"><span class="font-mono-code text-[10px] uppercase text-[var(--muted)]">Documents Ranked</span><p id="kpiCount" class="mt-2 font-serif-disp text-4xl">0</p><p id="kpiThresholdNote" class="mt-1 text-xs text-[var(--muted)]">Passing threshold</p></div>
+      <div class="kpi-card panel p-5"><span class="font-mono-code text-[10px] uppercase text-[var(--muted)]">Mean Skill Coverage</span><p id="kpiAvgSkill" class="mt-2 font-serif-disp text-4xl text-indigo-400">0%</p><p class="mt-1 text-xs text-[var(--muted)]">Corpus average</p></div>
+      <div class="kpi-card panel p-5"><span class="font-mono-code text-[10px] uppercase text-[var(--muted)]">Top Skill Coverage</span><p id="kpiBestSkill" class="mt-2 font-serif-disp text-4xl text-emerald-400">0%</p><p id="kpiBestName" class="mt-1 text-xs text-[var(--muted)] truncate">Leading candidate</p></div>
+      <div class="kpi-card panel p-5"><span class="font-mono-code text-[10px] uppercase text-[var(--muted)]">Target Skills Extracted</span><p id="kpiJdSkills" class="mt-2 font-serif-disp text-4xl text-amber-400">0</p><p class="mt-1 text-xs text-[var(--muted)]">From role spec</p></div>
+    </div>
+
+    <!-- Segmented 4-Tab Bar -->
+    <div class="panel p-1.5 flex flex-wrap gap-1">
+      <button data-tab="rankings" class="tab-btn flex-1 min-w-[140px] rounded-xl bg-indigo-500 text-white px-4 py-2 text-xs font-semibold transition">Candidate Rankings</button>
+      <button data-tab="skills" class="tab-btn flex-1 min-w-[140px] rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] transition">Skills Matrix</button>
+      <button data-tab="math" class="tab-btn flex-1 min-w-[140px] rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] transition">Mathematical Proof</button>
+      <button data-tab="charts" class="tab-btn flex-1 min-w-[140px] rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] transition">Visualizations</button>
+    </div>
+
+    <div id="tab-rankings" class="tab-panel space-y-3"></div>
+    <div id="tab-skills" class="tab-panel hidden space-y-5"></div>
+    <div id="tab-math" class="tab-panel hidden space-y-4">
+      <div class="panel p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-base font-semibold">Step-by-Step Pipeline Inspection</h3>
+          <p class="text-xs text-[var(--muted)]">Audit tokenization, stopword pruning, Porter stemming, TF-IDF weights, and cosine dot-product.</p>
+        </div>
+        <select id="mathInspectSelect" class="min-w-[230px] rounded-xl border border-[var(--border)] bg-[var(--surface-solid)] px-3.5 py-2 text-xs font-semibold"></select>
+      </div>
+      <div id="mathBreakdownContent" class="space-y-4"></div>
+    </div>
+    <div id="tab-charts" class="tab-panel hidden grid lg:grid-cols-2 gap-6">
+      <div class="panel p-5">
+        <h3 class="text-sm font-semibold mb-1">Cosine Similarity Distribution</h3>
+        <p class="text-xs text-[var(--muted)] mb-4">Ranked score (%) by candidate tier</p>
+        <div class="relative h-72"><canvas id="barScoreChart"></canvas></div>
+      </div>
+      <div class="panel p-5">
+        <h3 class="text-sm font-semibold mb-1">Skill Coverage Breakdown</h3>
+        <p class="text-xs text-[var(--muted)] mb-4">Matched vs. missing required skills</p>
+        <div class="relative h-72"><canvas id="groupedSkillChart"></canvas></div>
+      </div>
+      <div class="panel p-5 lg:col-span-2">
+        <h3 class="text-sm font-semibold mb-1">Cosine Similarity vs. Explicit Skill Coverage</h3>
+        <p class="text-xs text-[var(--muted)] mb-4">Semantic vector alignment (%) plotted against keyword skill overlap (%)</p>
+        <div class="relative h-72"><canvas id="scatterChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ARCHITECTURE SHOWCASE -->
+  <section id="architecture" class="panel p-8 sm:p-12 overflow-hidden scroll-mt-20">
+    <div class="grid lg:grid-cols-12 gap-10 items-center">
+      <div class="lg:col-span-5 space-y-5">
+        <span class="font-mono-code text-[11px] uppercase tracking-widest text-indigo-400">03 // Pipeline Architecture</span>
+        <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight leading-tight">
+          Built from scratch in <span class="font-serif-disp italic font-normal text-4xl sm:text-5xl text-emerald-400">pure Python.</span>
+        </h2>
+        <p class="text-sm text-[var(--muted)] leading-relaxed">
+          Every stage in <span class="font-mono-code text-[var(--ink)]">src/</span> is deterministic and transparent—no opaque embeddings or external NLP black boxes.
+        </p>
+        <div class="flex flex-col gap-2 pt-2" id="archStageList"></div>
+      </div>
+
+      <div class="lg:col-span-7">
+        <div id="archStageCard" class="rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-solid)] p-6 sm:p-8 shadow-2xl space-y-5">
+          <div class="flex items-center justify-between border-b border-[var(--border)] pb-4">
+            <span id="archBadge" class="font-mono-code text-xs text-indigo-400">STAGE 01 · src/preprocessing/tokenizer.py</span>
+            <span id="archLatency" class="font-mono-code text-xs text-emerald-400">&lt; 2 ms</span>
+          </div>
+          <div>
+            <h3 id="archTitle" class="text-2xl font-semibold">Regex Tokenization</h3>
+            <p id="archDesc" class="mt-2 text-sm text-[var(--muted)] leading-relaxed">Normalizes raw resume and job description text to lowercase and extracts clean alphanumeric &amp; compound technical tokens.</p>
+          </div>
+          <div id="archPreview" class="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4 font-mono-code text-xs text-emerald-400"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. TECHNICAL Q&A -->
+  <section id="faq" class="max-w-4xl mx-auto space-y-6 scroll-mt-20">
+    <div>
+      <span class="font-mono-code text-[11px] uppercase tracking-widest text-[var(--muted)]">04 // Methodology</span>
+      <h2 class="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight">Technical Notes</h2>
+    </div>
+    <div id="faq-list"></div>
+  </section>
+</main>
+
+<footer class="border-t border-[var(--border)] py-8 px-4 sm:px-6">
+  <div class="mx-auto max-w-7xl flex flex-wrap items-center justify-between gap-4 text-xs text-[var(--muted)]">
+    <span>NLP Resume Intelligence · Also available as a <a href="https://nlp-based-resume-matching.streamlit.app/" target="_blank" rel="noopener noreferrer" class="underline text-[var(--ink)]">Streamlit live demo</a></span>
+    <span class="font-mono-code">Tokenize · Stopwords · Porter Stem · TF-IDF · Cosine</span>
+  </div>
+</footer>
+
+<!-- SLIDE-OVER SHORTLIST DOSSIER -->
+<div id="bag-drawer" class="fixed inset-0 z-50 hidden">
+  <div id="bag-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+  <aside class="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-[var(--border)] bg-[var(--surface-solid)] text-[var(--ink)] shadow-2xl">
+    <div class="flex items-center justify-between border-b border-[var(--border)] px-6 py-5">
+      <div>
+        <h3 class="text-lg font-semibold">Shortlist Dossier</h3>
+        <p id="bag-summary-line" class="font-mono-code text-xs text-[var(--muted)]">0 candidates selected</p>
+      </div>
+      <button id="close-bag-btn" type="button" class="rounded-lg border border-[var(--border)] px-3 py-1 text-xs font-medium hover:border-[var(--border-strong)]">Close</button>
+    </div>
+    <div id="bag-items" class="flex-1 space-y-3 overflow-y-auto p-6"></div>
+    <div class="border-t border-[var(--border)] p-6 flex gap-3">
+      <button id="bag-export-csv-btn" type="button" class="flex-1 rounded-xl bg-indigo-500 text-white py-2.5 text-xs font-semibold hover:bg-indigo-400">Export Shortlist CSV</button>
+      <button id="bag-clear-btn" type="button" class="rounded-xl border border-[var(--border)] px-4 py-2.5 text-xs font-medium">Clear</button>
+    </div>
+  </aside>
+</div>
+
+<!-- ADD CUSTOM RESUME MODAL -->
+<div id="addResumeModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div id="addResumeBackdrop" class="absolute inset-0 bg-black/65 backdrop-blur-sm"></div>
+  <div class="relative z-10 w-full max-w-lg rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-solid)] p-6 space-y-4 shadow-2xl">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base font-semibold">Add Custom Candidate Resume</h3>
+      <button id="closeAddResumeModalBtn" type="button" class="text-xs text-[var(--muted)] hover:text-[var(--ink)]">Close</button>
+    </div>
+    <div class="space-y-3 text-xs">
+      <div>
+        <label for="customResumeName" class="block font-mono-code text-[10px] uppercase text-[var(--muted)] mb-1">Candidate Identifier</label>
+        <input id="customResumeName" type="text" placeholder="e.g., Aarav_Sharma_ML.txt" class="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-elev)] p-3 focus:outline-none focus:border-indigo-400" />
+      </div>
+      <div>
+        <label for="customResumeText" class="block font-mono-code text-[10px] uppercase text-[var(--muted)] mb-1">Resume Content</label>
+        <textarea id="customResumeText" rows="6" placeholder="Paste skills, experience, projects..." class="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-elev)] p-3 font-mono-code focus:outline-none focus:border-indigo-400"></textarea>
+      </div>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button id="cancelAddResumeBtn" type="button" class="rounded-xl border border-[var(--border)] px-4 py-2 text-xs font-medium">Cancel</button>
+      <button id="saveCustomResumeBtn" type="button" class="rounded-xl bg-indigo-500 text-white px-5 py-2 text-xs font-semibold">Add to Corpus</button>
+    </div>
+  </div>
+</div>
+
+<!-- 5-STAGE PIPELINE MODAL -->
+<div id="showreelModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div id="showreelBackdrop" class="absolute inset-0 bg-black/75 backdrop-blur-md"></div>
+  <div class="relative z-10 w-full max-w-2xl rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-solid)] p-6 space-y-5 shadow-2xl">
+    <div class="flex items-center justify-between">
+      <span class="font-mono-code text-xs text-indigo-400">PIPELINE WALKTHROUGH · 5 STAGES</span>
+      <button id="closeShowreelBtn" type="button" class="text-xs text-[var(--muted)] hover:text-[var(--ink)]">Close</button>
+    </div>
+    <div class="grid grid-cols-5 gap-1.5" id="showreelProgressBars"></div>
+    <div id="showreelStage" class="min-h-[190px] rounded-xl border border-[var(--border)] bg-[var(--bg)] p-5 flex flex-col justify-between"></div>
+    <div class="flex items-center justify-between">
+      <button id="showreelPrevBtn" type="button" class="rounded-xl border border-[var(--border)] px-4 py-2 text-xs font-medium">Previous</button>
+      <button id="showreelPlayPauseBtn" type="button" class="rounded-xl border border-[var(--border)] px-4 py-2 text-xs font-medium"><span id="showreelPlayLabel">Pause</span></button>
+      <button id="showreelNextBtn" type="button" class="rounded-xl bg-indigo-500 text-white px-4 py-2 text-xs font-semibold">Next Stage</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-pill" role="status" class="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 translate-y-16 rounded-xl border border-[var(--border-strong)] bg-[var(--surface-solid)] px-4 py-2.5 text-xs font-medium text-[var(--ink)] opacity-0 shadow-2xl transition-all duration-300"></div>
+
+<script>
+let SAMPLE_JDS = {
+  ml_eng: `Senior Machine Learning Engineer (NLP & Python)
+We are seeking an experienced Machine Learning Engineer to design and deploy production NLP pipelines, text classification models, and semantic search systems.
+Required Skills:
+- Strong proficiency in Python, SQL, and Git
+- Hands-on experience with NLP, TF-IDF, Cosine Similarity, Word Embeddings, and Transformers
+- Experience building models using PyTorch, TensorFlow, Scikit-learn, and Pandas
+- Familiarity with Docker, FastAPI, AWS, and CI/CD pipelines
+- Solid foundation in Data Structures, Algorithms, Statistics, and Linear Algebra`,
+  data_sci: `Data Scientist — Predictive Modeling & Analytics
+Join our analytics team to build predictive models, customer segmentation, and interactive dashboards.
+Required Skills:
+- Expertise in Python, R, SQL, and Pandas / NumPy
+- Experience with Regression, Classification, Clustering, PCA, and Scikit-learn
+- Data visualization with Plotly, Matplotlib, Tableau, or Power BI
+- Experience with A/B Testing, Statistics, and Feature Engineering
+- Familiarity with AWS, Spark, and Git`,
+  ai_full: `Full-Stack AI Engineer (React, FastAPI, LLMs)
+Build next-generation AI web applications with streaming interfaces and retrieval pipelines.
+Required Skills:
+- Strong experience in TypeScript, React, Next.js, Tailwind CSS, and Python
+- Backend API development with FastAPI, Node.js, PostgreSQL, and Docker
+- Experience integrating LLMs, RAG, Vector Databases, and NLP pipelines
+- Familiarity with Git, AWS, CI/CD, and REST APIs`
+};
+
+let SAMPLE_RESUMES = [
+  { id: 'res_1', name: 'Ananya_Verma_NLP.txt', text: `Ananya Verma — Machine Learning & NLP Engineer\nSkills: Python, SQL, Git, NLP, TF-IDF, Cosine Similarity, Transformers, PyTorch, Scikit-learn, Pandas, NumPy, FastAPI, Docker, AWS, Statistics, Linear Algebra, Plotly, Data Structures, Algorithms.\nBuilt a custom TF-IDF and Cosine Similarity ranking engine from scratch in Python.` },
+  { id: 'res_2', name: 'Rohan_Mehta_ML.txt', text: `Rohan Mehta — Data Scientist & ML Practitioner\nSkills: Python, SQL, Pandas, NumPy, Scikit-learn, TensorFlow, Regression, Classification, Clustering, PCA, Statistics, Plotly, Matplotlib, Git, Feature Engineering, A/B Testing.` },
+  { id: 'res_3', name: 'Priya_Nair_FullStackAI.txt', text: `Priya Nair — Full-Stack AI Engineer\nSkills: TypeScript, React, Next.js, Tailwind CSS, Python, FastAPI, Node.js, PostgreSQL, Docker, LLMs, RAG, Vector Databases, NLP, Git, AWS, REST APIs, CI/CD.` },
+  { id: 'res_4', name: 'Kabir_Singh_Backend.txt', text: `Kabir Singh — Backend Software Engineer\nSkills: Java, Python, SQL, PostgreSQL, Docker, Kubernetes, AWS, Git, REST APIs, CI/CD, Data Structures, Algorithms.` },
+  { id: 'res_5', name: 'Meera_Joshi_Analyst.txt', text: `Meera Joshi — Business & Data Analyst\nSkills: SQL, Excel, Tableau, Power BI, Python, Pandas, Statistics, A/B Testing, Matplotlib.` }
+];
+
+let uploadedResumes = [];
+let currentAnalysis = null;
+let shortlistBag = [];
+let chartInstances = {};
+let stackCycleIdx = 0;
+
+function showToast(msg) {
+  const el = document.getElementById('toast-pill');
+  el.textContent = msg;
+  el.classList.remove('opacity-0', 'translate-y-16');
+  el.classList.add('opacity-100', 'translate-y-0');
+  clearTimeout(window.__tTimer);
+  window.__tTimer = setTimeout(() => {
+    el.classList.add('opacity-0', 'translate-y-16');
+    el.classList.remove('opacity-100', 'translate-y-0');
+  }, 2500);
+}
+
+// ---- Backend API (server.py) ----
+// Same-origin by default. If this file is opened from elsewhere, set window.API_BASE.
+const API_BASE = (window.API_BASE || '').replace(/\/$/, '');
+
+async function apiFetch(path, options) {
+  let res;
+  try {
+    res = await fetch(API_BASE + path, options);
+  } catch (e) {
+    throw new Error('Cannot reach the backend. Start it with "python server.py" and open http://localhost:5000');
+  }
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) throw new Error((data && data.error) || `Server error (${res.status})`);
+  return data;
+}
+
+function escapeHtml(v) {
+  return String(v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+// 3D Stack Interaction
+const stackStage = document.getElementById('stackStage');
+const stack3d = document.getElementById('stack3d');
+stackStage.addEventListener('pointermove', e => {
+  const r = stackStage.getBoundingClientRect();
+  const nx = (e.clientX - r.left) / r.width - 0.5;
+  const ny = (e.clientY - r.top) / r.height - 0.5;
+  stack3d.style.setProperty('--ry', (nx * 16 - 4).toFixed(2) + 'deg');
+  stack3d.style.setProperty('--rx', (-ny * 12 + 4).toFixed(2) + 'deg');
+});
+stackStage.addEventListener('pointerleave', () => {
+  stack3d.style.setProperty('--ry', '-8deg');
+  stack3d.style.setProperty('--rx', '6deg');
+});
+
+function updateHeroStack() {
+  const list = currentAnalysis && currentAnalysis.filtered.length
+    ? currentAnalysis.filtered
+    : [
+        { name: 'Ananya_Verma_NLP.txt', cosinePct: 84.6, matchedSkills: new Array(14), cosDetail: { similarity: 0.846 } },
+        { name: 'Rohan_Mehta_ML.txt', cosinePct: 68.2, matchedSkills: new Array(11), cosDetail: { similarity: 0.682 } },
+        { name: 'Priya_Nair_FullStackAI.txt', cosinePct: 54.1, matchedSkills: new Array(9), cosDetail: { similarity: 0.541 } }
+      ];
+  const item = list[stackCycleIdx % list.length];
+  document.getElementById('stackTopTag').textContent = `RANK #0${(stackCycleIdx % list.length) + 1} · VECTOR ALIGNMENT`;
+  document.getElementById('stackTopScore').textContent = `${item.cosinePct.toFixed(1)}%`;
+  document.getElementById('stackTopName').textContent = item.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+  document.getElementById('stackTopSub').textContent = `cos(θ) = ${item.cosDetail.similarity.toFixed(3)} · ${item.matchedSkills.length} Matched Skills`;
+  document.getElementById('stackTopBar').style.width = `${Math.min(100, item.cosinePct).toFixed(1)}%`;
+}
+
+document.querySelector('[data-cycle-stack]').addEventListener('click', () => {
+  stackCycleIdx++;
+  updateHeroStack();
+  if (typeof gsap !== 'undefined') {
+    gsap.fromTo('.stack-layer[data-depth="0"]', { y: -8, scale: 0.98 }, { y: 0, scale: 1, duration: 0.35, ease: 'power2.out' });
+  }
+});
+
+// JD & Corpus Controls
+const useSampleJD = document.getElementById('useSampleJD');
+const sampleJDWrap = document.getElementById('sampleJDWrap');
+const sampleJDSelect = document.getElementById('sampleJDSelect');
+const jdTextarea = document.getElementById('jdTextarea');
+const useSampleResumes = document.getElementById('useSampleResumes');
+const minThreshold = document.getElementById('minThreshold');
+
+function syncJDUI() {
+  if (useSampleJD.checked) {
+    sampleJDWrap.classList.remove('hidden');
+    jdTextarea.readOnly = true;
+    jdTextarea.value = SAMPLE_JDS[sampleJDSelect.value];
+    document.getElementById('jdTextareaLabel').textContent = 'Role Description Preview';
+  } else {
+    sampleJDWrap.classList.add('hidden');
+    jdTextarea.readOnly = false;
+    document.getElementById('jdTextareaLabel').textContent = 'Custom Role Description';
+  }
+  const words = jdTextarea.value.trim() ? jdTextarea.value.trim().split(/\s+/).length : 0;
+  document.getElementById('jdWordCount').textContent = `${words} words`;
+}
+
+function getActiveResumes() {
+  const pool = [];
+  if (useSampleResumes.checked) pool.push(...SAMPLE_RESUMES);
+  pool.push(...uploadedResumes);
+  return pool;
+}
+
+function renderResumePool() {
+  const pool = getActiveResumes();
+  document.getElementById('resumePoolCount').textContent = `${pool.length} document${pool.length === 1 ? '' : 's'}`;
+  document.getElementById('resumePoolChips').innerHTML = pool.map(r => `
+    <span class="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface-solid)] px-2.5 py-1 font-mono-code text-[11px]">${escapeHtml(r.name)}</span>
+  `).join('') || '<span class="text-xs text-[var(--muted)]">No resumes in corpus.</span>';
+}
+
+useSampleJD.addEventListener('change', syncJDUI);
+sampleJDSelect.addEventListener('change', syncJDUI);
+jdTextarea.addEventListener('input', syncJDUI);
+useSampleResumes.addEventListener('change', renderResumePool);
+minThreshold.addEventListener('input', () => { document.getElementById('thresholdValueLabel').textContent = `${minThreshold.value}%`; });
+
+document.getElementById('resumeFileInput').addEventListener('change', async e => {
+  const input = e.target;
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  let added = 0;
+  const needsParsing = [];
+  for (const f of files) {
+    const lower = f.name.toLowerCase();
+    if (lower.endsWith('.pdf') || lower.endsWith('.docx')) { needsParsing.push(f); continue; }
+    try {
+      const text = await f.text();
+      if (text.trim()) { uploadedResumes.push({ id: `up_${Date.now()}_${Math.random().toString(36).slice(2,5)}`, name: f.name, text }); added++; }
+      else showToast(`${f.name}: no readable text`);
+    } catch { showToast(`Could not read ${f.name}`); }
+  }
+  if (needsParsing.length) {
+    try {
+      const fd = new FormData();
+      needsParsing.forEach(f => fd.append('files', f));
+      const data = await apiFetch('/api/parse', { method: 'POST', body: fd });
+      data.files.forEach(r => {
+        if (r.error) showToast(`${r.name}: ${r.error}`);
+        else { uploadedResumes.push({ id: `up_${Date.now()}_${Math.random().toString(36).slice(2,5)}`, name: r.name, text: r.text }); added++; }
+      });
+    } catch (err) { showToast(err.message); }
+  }
+  input.value = '';
+  renderResumePool();
+  if (added) showToast(`Added ${added} document(s) to corpus`);
+});
+
+// Custom Resume Modal
+const addModal = document.getElementById('addResumeModal');
+document.getElementById('openAddResumeModalBtn').addEventListener('click', () => { addModal.classList.remove('hidden'); addModal.classList.add('flex'); });
+function closeAddModal() { addModal.classList.add('hidden'); addModal.classList.remove('flex'); }
+document.getElementById('closeAddResumeModalBtn').addEventListener('click', closeAddModal);
+document.getElementById('cancelAddResumeBtn').addEventListener('click', closeAddModal);
+document.getElementById('addResumeBackdrop').addEventListener('click', closeAddModal);
+document.getElementById('saveCustomResumeBtn').addEventListener('click', () => {
+  const name = document.getElementById('customResumeName').value.trim() || `Candidate_${uploadedResumes.length + 1}.txt`;
+  const text = document.getElementById('customResumeText').value.trim();
+  if (!text) return showToast('Please paste resume text first');
+  uploadedResumes.push({ id: `cust_${Date.now()}`, name, text });
+  document.getElementById('customResumeName').value = '';
+  document.getElementById('customResumeText').value = '';
+  closeAddModal();
+  renderResumePool();
+  showToast(`Added ${name}`);
+});
+
+// Run Analysis (computed by the Python backend)
+let analysisBusy = false;
+async function runAnalysis() {
+  if (analysisBusy) return;
+  const jdText = jdTextarea.value.trim();
+  const pool = getActiveResumes();
+  const threshold = Number(minThreshold.value);
+  if (!jdText || !pool.length) return showToast('Provide a Job Description and at least 1 Resume');
+
+  analysisBusy = true;
+  const btn = document.getElementById('analyzeBtn');
+  const btnLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Analyzing…';
+  try {
+    const data = await apiFetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jd: jdText, resumes: pool.map(r => ({ id: r.id, name: r.name, text: r.text })) })
+    });
+    const candidates = data.candidates;
+    const filtered = candidates.filter(c => c.cosinePct >= threshold);
+    currentAnalysis = { jdText, jdPrep: data.jdPrep, jdSkills: data.jdSkills, candidates, filtered, threshold };
+
+    stackCycleIdx = 0;
+    updateHeroStack();
+    renderResultsDashboard();
+
+    const sec = document.getElementById('resultsSection');
+    sec.classList.remove('hidden');
+    document.getElementById('resetBtn').classList.remove('hidden');
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast(`Evaluated ${filtered.length} candidate(s) above ${threshold}%`);
+  } catch (err) {
+    showToast(err.message);
+  } finally {
+    analysisBusy = false;
+    btn.disabled = false; btn.textContent = btnLabel;
+  }
+}
+
+function animateKPI(el, target, suffix = '') {
+  const obj = { v: 0 };
+  if (typeof gsap !== 'undefined') {
+    gsap.to(obj, {
+      v: target, duration: 0.75, ease: 'power2.out',
+      onUpdate: () => { el.textContent = (suffix === '' ? Math.round(obj.v) : obj.v.toFixed(1)) + suffix; }
+    });
+  } else {
+    el.textContent = target + suffix;
+  }
+}
+
+function renderResultsDashboard() {
+  const { filtered, candidates, jdSkills, threshold } = currentAnalysis;
+  animateKPI(document.getElementById('kpiCount'), filtered.length, '');
+  document.getElementById('kpiThresholdNote').textContent = threshold > 0 ? `Threshold ≥ ${threshold}%` : 'Full corpus';
+  const avgSkill = filtered.length ? filtered.reduce((s, c) => s + c.skillMatchPct, 0) / filtered.length : 0;
+  animateKPI(document.getElementById('kpiAvgSkill'), avgSkill, '%');
+  animateKPI(document.getElementById('kpiBestSkill'), filtered[0] ? filtered[0].skillMatchPct : 0, '%');
+  document.getElementById('kpiBestName').textContent = filtered[0] ? filtered[0].name : 'None';
+  animateKPI(document.getElementById('kpiJdSkills'), jdSkills.found.length, '');
+
+  document.getElementById('tab-rankings').innerHTML = filtered.map((c, idx) => {
+    const inBag = shortlistBag.includes(c.id);
+    const tierBorder = idx === 0 ? 'border-amber-400/40' : '';
+    return `
+      <div class="panel p-5 space-y-4 ${tierBorder}">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3.5">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-solid)] font-mono-code text-xs font-semibold ${idx === 0 ? 'text-amber-400' : 'text-[var(--muted)]'}">#0${idx + 1}</span>
+            <div>
+              <h4 class="text-sm sm:text-base font-semibold">${escapeHtml(c.name)}</h4>
+              <p class="font-mono-code text-[11px] text-[var(--muted)]">${c.matchedSkills.length}/${jdSkills.found.length} required skills · ${c.extraSkills.length} additional skills</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-5">
+            <div class="text-right"><span class="block font-mono-code text-[10px] text-[var(--muted)]">COSINE</span><b class="font-serif-disp text-2xl text-emerald-400">${c.cosinePct.toFixed(1)}%</b></div>
+            <div class="text-right"><span class="block font-mono-code text-[10px] text-[var(--muted)]">COVERAGE</span><b class="font-serif-disp text-2xl text-indigo-400">${c.skillMatchPct.toFixed(1)}%</b></div>
+            <button type="button" data-shortlist-toggle="${c.id}" class="rounded-xl px-3.5 py-2 text-xs font-semibold transition ${inBag ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40' : 'border border-[var(--border-strong)] bg-[var(--surface-solid)] hover:border-indigo-400'}">${inBag ? 'Shortlisted ✓' : '+ Shortlist'}</button>
+          </div>
+        </div>
+        <details>
+          <summary class="cursor-pointer font-mono-code text-xs text-indigo-400 hover:underline">Inspect Skills &amp; TF-IDF Terms</summary>
+          <div class="mt-4 pt-4 border-t border-[var(--border)] grid md:grid-cols-2 gap-4 text-xs">
+            <div class="space-y-2 leading-relaxed">
+              <p><b class="text-emerald-400">Matched:</b> ${escapeHtml(c.matchedSkills.join(', ')) || 'None'}</p>
+              <p><b class="text-rose-400">Missing:</b> ${escapeHtml(c.missingSkills.join(', ')) || 'None'}</p>
+              <p><b class="text-indigo-400">Additional:</b> ${escapeHtml(c.extraSkills.join(', ')) || 'None'}</p>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-[var(--border)]">
+              <table class="w-full text-left font-mono-code text-[11px]">
+                <thead class="bg-[var(--surface-elev)] text-[var(--muted)]"><tr><th class="p-2">Stem</th><th class="p-2">TF</th><th class="p-2">IDF</th><th class="p-2">TF-IDF</th></tr></thead>
+                <tbody class="divide-y divide-[var(--border)]">
+                  ${c.topTerms.slice(0, 5).map(t => `<tr><td class="p-2 text-indigo-400">${escapeHtml(t.term)}</td><td class="p-2">${t.tf.toFixed(3)}</td><td class="p-2">${t.idf.toFixed(3)}</td><td class="p-2">${t.tfidf.toFixed(4)}</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      </div>
+    `;
+  }).join('') || '<div class="panel p-6 text-center text-xs text-[var(--muted)]">No candidates met the minimum threshold.</div>';
+
+  document.querySelectorAll('[data-shortlist-toggle]').forEach(b => b.addEventListener('click', () => toggleShortlist(b.getAttribute('data-shortlist-toggle'))));
+
+  document.getElementById('tab-skills').innerHTML = `
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      ${Object.entries(jdSkills.byCategory).map(([cat, sk]) => `
+        <div class="panel p-4 space-y-2.5">
+          <div class="font-mono-code text-[10px] font-semibold uppercase tracking-wider text-indigo-400">${escapeHtml(cat.replace(/_/g, ' '))}</div>
+          <div class="flex flex-wrap gap-1.5">${sk.map(s => `<span class="rounded-md border border-[var(--border)] bg-[var(--surface-elev)] px-2 py-0.5 text-xs">${escapeHtml(s)}</span>`).join('')}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  const sel = document.getElementById('mathInspectSelect');
+  sel.innerHTML = candidates.map((c, i) => `<option value="${i}">${escapeHtml(c.name)} (${c.cosinePct.toFixed(1)}%)</option>`).join('');
+  sel.onchange = () => renderMathCandidate(candidates[Number(sel.value)]);
+  if (candidates.length) renderMathCandidate(candidates[0]);
+
+  Object.values(chartInstances).forEach(ch => ch.destroy());
+  chartInstances = {};
+  const labels = filtered.map(c => c.name.replace(/\.[^.]+$/, ''));
+  const cosScores = filtered.map(c => Number(c.cosinePct.toFixed(1)));
+  Chart.defaults.color = '#9ca3af';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+  chartInstances.bar = new Chart(document.getElementById('barScoreChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Cosine Similarity (%)', data: cosScores, backgroundColor: cosScores.map(v => v >= 60 ? '#10b981' : v >= 35 ? '#6366f1' : '#64748b'), borderRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }
+  });
+  chartInstances.grouped = new Chart(document.getElementById('groupedSkillChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Matched', data: filtered.map(c => c.matchedSkills.length), backgroundColor: '#10b981', borderRadius: 6 }, { label: 'Missing', data: filtered.map(c => c.missingSkills.length), backgroundColor: '#f59e0b', borderRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+  });
+  chartInstances.scatter = new Chart(document.getElementById('scatterChart'), {
+    type: 'scatter',
+    data: { datasets: [{ label: 'Candidates', data: filtered.map(c => ({ x: Number(c.cosinePct.toFixed(1)), y: Number(c.skillMatchPct.toFixed(1)), name: c.name })), backgroundColor: '#818cf8', pointRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { x: { min: 0, max: 100 }, y: { min: 0, max: 100 } } }
+  });
+}
+
+function renderMathCandidate(c) {
+  const d = c.cosDetail;
+  document.getElementById('mathBreakdownContent').innerHTML = `
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="panel p-4"><span class="font-mono-code text-[10px] text-indigo-400">01 · TOKENIZATION</span><p class="mt-1 font-serif-disp text-3xl">${c.prep.tokens.length} tokens</p><p class="mt-1 font-mono-code text-[11px] text-[var(--muted)] break-words">${escapeHtml(c.prep.tokens.slice(0, 18).join(', '))}...</p></div>
+      <div class="panel p-4"><span class="font-mono-code text-[10px] text-emerald-400">02 · STOPWORDS PRUNED</span><p class="mt-1 font-serif-disp text-3xl">${c.prep.noStop.length} retained</p><p class="mt-1 text-xs text-[var(--muted)]">Filtered ${c.prep.tokens.length - c.prep.noStop.length} high-frequency terms</p></div>
+      <div class="panel p-4"><span class="font-mono-code text-[10px] text-amber-400">03 · PORTER STEMMING</span><p class="mt-1 font-mono-code text-xs">${c.prep.noStop.slice(0, 5).map((w, i) => `${escapeHtml(w)} → ${escapeHtml(c.prep.stems[i])}`).join('<br>')}</p></div>
+    </div>
+    <div class="panel p-5 grid md:grid-cols-4 gap-3 text-center">
+      <div class="rounded-xl bg-[var(--surface-elev)] p-3"><span class="font-mono-code text-[10px] text-[var(--muted)]">DOT PRODUCT (A·B)</span><p class="mt-1 font-mono-code text-base font-semibold">${d.dot.toFixed(4)}</p></div>
+      <div class="rounded-xl bg-[var(--surface-elev)] p-3"><span class="font-mono-code text-[10px] text-[var(--muted)]">NORM |JD|</span><p class="mt-1 font-mono-code text-base font-semibold">${d.magA.toFixed(4)}</p></div>
+      <div class="rounded-xl bg-[var(--surface-elev)] p-3"><span class="font-mono-code text-[10px] text-[var(--muted)]">NORM |RESUME|</span><p class="mt-1 font-mono-code text-base font-semibold">${d.magB.toFixed(4)}</p></div>
+      <div class="rounded-xl bg-[var(--surface-elev)] p-3"><span class="font-mono-code text-[10px] text-emerald-400">COSINE SIMILARITY</span><p class="mt-1 font-mono-code text-base font-semibold text-emerald-400">${(d.similarity * 100).toFixed(2)}%</p></div>
+    </div>
+  `;
+}
+
+// Shortlist Dossier
+function toggleShortlist(id) {
+  if (shortlistBag.includes(id)) shortlistBag = shortlistBag.filter(x => x !== id);
+  else shortlistBag.push(id);
+  document.getElementById('bag-count-badge').textContent = String(shortlistBag.length);
+  document.getElementById('bag-summary-line').textContent = `${shortlistBag.length} candidate(s) selected`;
+  const list = currentAnalysis ? currentAnalysis.candidates : SAMPLE_RESUMES.map((r, i) => ({ id: r.id, name: r.name, cosinePct: [84.6, 68.2, 54.1, 39.4, 28.0][i] }));
+  document.getElementById('bag-items').innerHTML = shortlistBag.map(cid => {
+    const c = list.find(x => x.id === cid);
+    if (!c) return '';
+    return `<div class="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-elev)] p-4"><div><p class="text-sm font-semibold">${escapeHtml(c.name)}</p><p class="font-mono-code text-xs text-emerald-400">Cosine: ${c.cosinePct.toFixed(1)}%</p></div><button type="button" data-bag-rm="${cid}" class="text-xs text-[var(--muted)] hover:text-rose-400">Remove</button></div>`;
+  }).join('') || '<p class="text-xs text-[var(--muted)] text-center py-8">No candidates shortlisted yet.</p>';
+  document.querySelectorAll('[data-bag-rm]').forEach(b => b.addEventListener('click', () => toggleShortlist(b.getAttribute('data-bag-rm'))));
+  if (currentAnalysis) renderResultsDashboard();
+}
+
+// Tabs, Export, Theme
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => { b.className = 'tab-btn flex-1 min-w-[140px] rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] transition'; });
+    btn.className = 'tab-btn flex-1 min-w-[140px] rounded-xl bg-indigo-500 text-white px-4 py-2 text-xs font-semibold transition';
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.remove('hidden');
+  });
+});
+
+function exportCsv() {
+  if (!currentAnalysis) return showToast('Run evaluation first to export CSV');
+  const rows = [['Rank', 'Candidate', 'Cosine (%)', 'Skill Coverage (%)']];
+  currentAnalysis.filtered.forEach((c, i) => rows.push([i + 1, `"${c.name}"`, c.cosinePct.toFixed(2), c.skillMatchPct.toFixed(2)]));
+  const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'resume_rankings.csv'; a.click(); URL.revokeObjectURL(url);
+  showToast('Exported resume_rankings.csv');
+}
+document.getElementById('downloadCsvBtn').addEventListener('click', exportCsv);
+document.getElementById('bag-export-csv-btn').addEventListener('click', exportCsv);
+document.getElementById('bag-clear-btn').addEventListener('click', () => { shortlistBag = []; document.getElementById('bag-count-badge').textContent = '0'; document.getElementById('bag-items').innerHTML = '<p class="text-xs text-[var(--muted)] text-center py-8">No candidates shortlisted yet.</p>'; if (currentAnalysis) renderResultsDashboard(); });
+document.getElementById('open-bag-btn').addEventListener('click', () => document.getElementById('bag-drawer').classList.remove('hidden'));
+document.getElementById('close-bag-btn').addEventListener('click', () => document.getElementById('bag-drawer').classList.add('hidden'));
+document.getElementById('bag-backdrop').addEventListener('click', () => document.getElementById('bag-drawer').classList.add('hidden'));
+
+document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
+document.getElementById('heroQuickRunBtn').addEventListener('click', runAnalysis);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  currentAnalysis = null;
+  shortlistBag = [];
+  document.getElementById('bag-count-badge').textContent = '0';
+  document.getElementById('bag-summary-line').textContent = '0 candidate(s) selected';
+  document.getElementById('bag-items').innerHTML = '<p class="text-xs text-[var(--muted)] text-center py-8">No candidates shortlisted yet.</p>';
+  useSampleJD.checked = true;
+  useSampleResumes.checked = true;
+  minThreshold.value = '0';
+  document.getElementById('thresholdValueLabel').textContent = '0%';
+  uploadedResumes = [];
+  syncJDUI();
+  renderResumePool();
+  document.getElementById('resultsSection').classList.add('hidden');
+  document.getElementById('resetBtn').classList.add('hidden');
+  updateHeroStack();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next);
+  document.getElementById('theme-icon').textContent = next === 'light' ? '☾' : '☀';
+});
+
+// Architecture Interactive Stage List
+const ARCH_STAGES = [
+  { badge: 'STAGE 01 · src/preprocessing/tokenizer.py', latency: '< 2 ms', title: 'Regex Tokenization', desc: 'Normalizes raw resume and job description text to lowercase and extracts clean alphanumeric & compound technical tokens.', preview: 'tokenize("Built TF-IDF in Python") → ["built", "tf-idf", "in", "python"]' },
+  { badge: 'STAGE 02 · src/preprocessing/stopwords.py', latency: '< 1 ms', title: 'Stopword Pruning', desc: 'Strips high-frequency filler words so domain-specific technical skills carry full vector weight.', preview: 'remove_stopwords(tokens) → ["tf-idf", "python"]  // 50% noise removed' },
+  { badge: 'STAGE 03 · src/preprocessing/stemmer.py', latency: '< 2 ms', title: 'Porter Stemming', desc: 'Collapses word inflections (modeling, modeled → model) to canonical root stems for higher recall.', preview: 'stem_tokens(["pipelines", "modeling"]) → ["pipelin", "model"]' },
+  { badge: 'STAGE 04 · src/vectorization/tfidf.py', latency: '< 3 ms', title: 'TF-IDF Matrix', desc: 'Scores rare, high-signal terms across the Job Description and candidate corpus using log-scaled IDF.', preview: 'TF-IDF("nlp") = 0.083 × 2.098 = 0.1741  |  TF-IDF("python") = 0.0921' },
+  { badge: 'STAGE 05 · src/similarity/cosine.py', latency: '< 1 ms', title: 'Cosine Geometry', desc: 'Computes dot product divided by vector magnitudes for exact, explainable 0–100% alignment.', preview: 'cos(θ) = (JD · Resume) / (|JD| × |Resume|) = 0.8462  (84.62%)' }
+];
+
+function selectArchStage(idx) {
+  const s = ARCH_STAGES[idx];
+  document.getElementById('archBadge').textContent = s.badge;
+  document.getElementById('archLatency').textContent = s.latency;
+  document.getElementById('archTitle').textContent = s.title;
+  document.getElementById('archDesc').textContent = s.desc;
+  document.getElementById('archPreview').textContent = s.preview;
+  document.querySelectorAll('[data-arch-idx]').forEach(b => {
+    const act = Number(b.getAttribute('data-arch-idx')) === idx;
+    b.className = act
+      ? 'text-left rounded-xl border border-indigo-400/50 bg-[var(--surface-solid)] px-4 py-2.5 text-xs font-semibold text-[var(--ink)] transition'
+      : 'text-left rounded-xl border border-transparent px-4 py-2.5 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] transition';
+  });
+  if (typeof gsap !== 'undefined') gsap.fromTo('#archStageCard', { y: 8, opacity: 0.7 }, { y: 0, opacity: 1, duration: 0.3, ease: 'power2.out' });
+}
+
+document.getElementById('archStageList').innerHTML = ARCH_STAGES.map((s, i) => `
+  <button type="button" data-arch-idx="${i}">0${i + 1}. ${s.title}</button>
+`).join('');
+document.querySelectorAll('[data-arch-idx]').forEach(b => b.addEventListener('click', () => selectArchStage(Number(b.getAttribute('data-arch-idx')))));
+selectArchStage(0);
+
+// Showreel Modal
+let reelIdx = 0, reelPlaying = true, reelTimer = null;
+const showreelModal = document.getElementById('showreelModal');
+function renderReel() {
+  const s = ARCH_STAGES[reelIdx];
+  document.getElementById('showreelProgressBars').innerHTML = ARCH_STAGES.map((_, i) => `<div class="h-1 rounded-full bg-white/10 overflow-hidden"><div class="h-full ${i <= reelIdx ? 'bg-indigo-400 w-full' : 'w-0'} transition-all"></div></div>`).join('');
+  document.getElementById('showreelStage').innerHTML = `<div><span class="font-mono-code text-xs text-indigo-400">${s.badge}</span><h4 class="mt-2 text-xl font-semibold">${s.title}</h4><p class="mt-2 text-sm text-[var(--muted)]">${s.desc}</p></div><div class="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface-elev)] p-3 font-mono-code text-xs text-emerald-400">${s.preview}</div>`;
+}
+function openShowreel() {
+  reelIdx = 0; reelPlaying = true; showreelModal.classList.remove('hidden'); showreelModal.classList.add('flex'); renderReel();
+  if (reelTimer) clearInterval(reelTimer);
+  reelTimer = setInterval(() => { if (reelPlaying) { reelIdx = (reelIdx + 1) % ARCH_STAGES.length; renderReel(); } }, 3200);
+}
+function closeShowreel() { if (reelTimer) clearInterval(reelTimer); showreelModal.classList.add('hidden'); showreelModal.classList.remove('flex'); }
+document.getElementById('watchDemoBtnHeader').addEventListener('click', openShowreel);
+document.getElementById('watchDemoBtnHero').addEventListener('click', openShowreel);
+document.getElementById('closeShowreelBtn').addEventListener('click', closeShowreel);
+document.getElementById('showreelBackdrop').addEventListener('click', closeShowreel);
+document.getElementById('showreelNextBtn').addEventListener('click', () => { reelIdx = (reelIdx + 1) % ARCH_STAGES.length; renderReel(); });
+document.getElementById('showreelPrevBtn').addEventListener('click', () => { reelIdx = (reelIdx - 1 + ARCH_STAGES.length) % ARCH_STAGES.length; renderReel(); });
+document.getElementById('showreelPlayPauseBtn').addEventListener('click', () => { reelPlaying = !reelPlaying; document.getElementById('showreelPlayLabel').textContent = reelPlaying ? 'Pause' : 'Play'; });
+
+// FAQ
+const FAQS = [
+  ['How does this connect to the Python backend?', 'This page calls a Python API (server.py) that runs the from-scratch 5-stage pipeline in src/ — Tokenization, Stopword pruning, Porter stemming, TF-IDF vectorization, and Cosine similarity — and returns the full math for every candidate.'],
+  ['Can I evaluate custom Job Descriptions and Resumes?', 'Yes. Uncheck "Use preset role" to paste any Job Description, and upload .pdf/.docx/.txt/.md/.csv resumes or add custom candidate text inline.'],
+  ['How is the Cosine Similarity score computed?', 'Each document is represented as a sparse TF-IDF vector. The similarity score is the normalized dot product (JD · Resume) / (|JD| × |Resume|), bounded cleanly between 0% and 100%.']
+];
+document.getElementById('faq-list').innerHTML = FAQS.map(([q, a]) => `<div class="faq-item"><button type="button">${q}<i>+</i></button><div class="faq-ans"><p>${a}</p></div></div>`).join('');
+document.querySelectorAll('.faq-item button').forEach(b => b.addEventListener('click', () => b.parentElement.classList.toggle('open')));
+
+// Subtle Panel Sheen & Ambient Vector Canvas
+document.querySelectorAll('.panel').forEach(p => {
+  p.addEventListener('pointermove', e => {
+    const r = p.getBoundingClientRect();
+    p.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    p.style.setProperty('--my', `${e.clientY - r.top}px`);
+  });
+});
+
+(function initVectorCanvas() {
+  const canvas = document.getElementById('vectorCanvas');
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = window.innerWidth, h = canvas.height = window.innerHeight;
+  window.addEventListener('resize', () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
+  const nodes = Array.from({ length: 34 }, () => ({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 0.28, vy: (Math.random() - 0.5) * 0.28 }));
+  function tick() {
+    ctx.clearRect(0, 0, w, h);
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      a.x += a.vx; a.y += a.vy;
+      if (a.x < 0 || a.x > w) a.vx *= -1;
+      if (a.y < 0 || a.y > h) a.vy *= -1;
+      ctx.beginPath(); ctx.arc(a.x, a.y, 1.4, 0, Math.PI * 2); ctx.fillStyle = 'rgba(129,140,248,0.4)'; ctx.fill();
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (dist < 140) {
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = `rgba(129,140,248,${(1 - dist / 140) * 0.12})`;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+window.addEventListener('load', () => {
+  if (typeof gsap !== 'undefined') {
+    gsap.from('.hero-anim', { y: 20, opacity: 0, duration: 0.7, stagger: 0.09, ease: 'power3.out', clearProps: 'all' });
+    if (typeof ScrollTrigger !== 'undefined') {
+      gsap.registerPlugin(ScrollTrigger);
+      gsap.from('#archStageCard', {
+        scrollTrigger: { trigger: '#architecture', start: 'top 80%' },
+        y: 24, opacity: 0, duration: 0.6, ease: 'power2.out', clearProps: 'all'
+      });
+    }
+  }
+});
+
+syncJDUI();
+renderResumePool();
+updateHeroStack();
+
+// Load the project's real sample data (data/sample_*) from the backend.
+// If the backend is unreachable, the built-in samples above stay in place.
+(async function loadBackendSamples() {
+  try {
+    const data = await apiFetch('/api/samples');
+    if (data.jds && data.jds.length) {
+      SAMPLE_JDS = {};
+      data.jds.forEach(j => { SAMPLE_JDS[j.id] = j.text; });
+      sampleJDSelect.innerHTML = data.jds.map(j => `<option value="${escapeHtml(j.id)}">${escapeHtml(j.label)}</option>`).join('');
+      syncJDUI();
+    }
+    if (data.resumes && data.resumes.length) {
+      SAMPLE_RESUMES = data.resumes;
+      renderResumePool();
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+})();
+</script>
+</body>
+</html>
